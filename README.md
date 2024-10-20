@@ -31,6 +31,7 @@
 - **Global Shortcuts:** Copy the latest screenshot to the clipboard using `Ctrl + Shift + C`.
 - **System Tray Integration:** Minimize the application to the system tray with quick access controls.
 - **Theming:** Customize the application's appearance using Material Design themes.
+- **Enhanced Error Handling:** Improved logging and error messages for better troubleshooting.
 
 ## Features
 
@@ -42,59 +43,14 @@
 - **Global Shortcuts:** Quick access to clipboard functionality.
 - **System Tray:** Run the application unobtrusively in the background.
 - **Customizable Themes:** Personalize the look and feel.
-
-## Repository Structure
-
-```
-Visualizer/
-├── main.py
-├── screenshot_manager.py
-├── flask_app.py
-├── display_window.py
-├── ui.py
-├── requirements.txt
-├── README.md
-└── screenshot_icon.png  # (Optional) Custom icon for system tray
-```
-
-### File Descriptions:
-
-- **`main.py`**
-  - Entry point of the application.
-  - Parses command-line arguments.
-  - Initializes components and starts the application.
-
-- **`screenshot_manager.py`**
-  - Contains the `ScreenshotManager` class.
-  - Handles all screenshot capturing and saving logic.
-
-- **`flask_app.py`**
-  - Contains the `FlaskApp` class.
-  - Manages the Flask web server and its routes.
-
-- **`display_window.py`**
-  - Contains the `ScreenshotDisplayWindow` class.
-  - Manages the floating window that displays the latest screenshot.
-
-- **`ui.py`**
-  - Contains the `ScreenshotWindow` class.
-  - Manages the main PyQt5 UI.
-
-- **`requirements.txt`**
-  - Lists all Python dependencies required by the application.
-
-- **`README.md`**
-  - This documentation.
-
-- **`screenshot_icon.png`**
-  - (Optional) Custom icon for the system tray. If absent, a default system icon will be used.
+- **Improved User Experience:** Streamlined GUI for easier navigation and control.
 
 ## Installation
 
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/yourusername/Visualizer.git
+   git clone https://github.com/margusmartsepp/Visualizer.git
    cd Visualizer
    ```
 
@@ -111,13 +67,11 @@ Visualizer/
    pip install -r requirements.txt
    ```
 
-   *Note: The script automatically installs missing packages, but it's good practice to install them manually.*
-
-4. **Ensure `screenshot_icon.png` Exists:**
-
-   - Place an icon file named `screenshot_icon.png` in the repository root for a custom system tray icon.
-   - If absent, a default system icon will be used, and a warning will be logged.
-
+   *Note: The script automatically installs missing packages, but it's good practice to install them manually. Ensure you have the latest version of `Flask` and `PyQt5`.*
+   *Note: use following command to update requirements.txt*
+   ```bash
+   pip-chill > requirements.txt
+   ```
 ## Usage
 
 ### Launching the Application
@@ -125,83 +79,52 @@ Visualizer/
 Navigate to the repository directory and run:
 
 ```bash
-python main.py [OPTIONS]
+python app.py
 ```
 
-### Command-Line Options
+### Command-Line Arguments:
 
-- `--host`: Flask server host (default: `127.0.0.1`)
-- `--port`: Flask server port (default: `5000`)
-- `--mode`: Capture mode. Choices:
-  - `Full Screen`
-  - `Specific Application`
-  - `Specific Monitor`
-  - `DirectX Game`
-  - `Specific Browser Tab`
-  
-  *(default: `Full Screen`)*
-  
-- `--start`: Start capturing immediately upon launch.
-- `--reuse`: Enable reuse same image mode.
-- `--directory`: Directory to save screenshots (default: current working directory).
+- **`--host`**
+  - **Description:** Flask server host (default: 127.0.0.1).
+  - **Default:** `127.0.0.1`
 
-**Examples:**
+- **`--port`**
+  - **Description:** Flask server port (default: 5000).
+  - **Default:** `5000`
+
+- **`--mode`**
+  - **Description:** Capture mode (default: Full Screen).
+  - **Choices:** Full Screen, Specific Application, Specific Monitor, DirectX Game, Specific Browser Tab.
+  - **Default:** `Full Screen`
+
+- **`--start`**
+  - **Description:** Starts capturing immediately upon launch.
+  - **Default:** `False`
+
+- **`--reuse`**
+  - **Description:** Enables reuse same image mode (overwrites the same file).
+  - **Default:** `False`
+
+- **`--directory`**
+  - **Description:** Specifies the directory to save screenshots.
+  - **Default:** Current working directory.
+  - **Example:** `--directory "C:\Screenshots"`
+
+### Example Usage:
 
 - **Start Capturing Full Screen Immediately with Reuse Enabled:**
 
   ```bash
-  python main.py --start --reuse --mode "Full Screen" --directory "C:\Screenshots"
+  python app.py --start --reuse --mode "Full Screen" --directory "C:\Screenshots"
   ```
 
 - **Start Capturing Specific Application Without Reuse:**
 
   ```bash
-  python main.py --start --mode "Specific Application" --directory "D:\MyScreenshots"
+  python app.py --start --mode "Specific Application" --directory "D:\MyScreenshots"
   ```
 
-### Using the GUI
-
-1. **Launch the Application:**
-
-   ```bash
-   python main.py
-   ```
-
-2. **Capture Tab:**
-
-   - **Select Capture Mode:** Choose between "Full Screen", "Specific Application", "Specific Monitor", "DirectX Game", or "Specific Browser Tab".
-   - **Dynamic Controls:** Depending on the selected mode, additional options appear to select the specific application, monitor, etc.
-   - **Toggle Capturing:** Use the **Start Capturing** toggle button to begin taking screenshots at intervals defined by `INTERVAL_SECONDS`. The button text changes to **Stop Capturing** when active.
-   - **Floating Screenshot Display:** The latest screenshot appears in a floating window on your screen, always on top. You can close this window by clicking the **X** button.
-
-3. **Settings Tab:**
-
-   - **Flask Configuration:** Set the host and port for the Flask web server.
-   - **Reuse Same Image:** Enable this to overwrite the same screenshot file with each new capture.
-   - **Select File Location:** Choose the directory where screenshots will be saved.
-   - **Theme Selection:** Use the **Select Theme** dropdown to choose different Material Design themes. The theme changes immediately upon selection.
-
-### Using the Terminal Client
-
-The application is primarily GUI-based, but you can control it via command-line arguments. For more advanced terminal interactions, further development is required to implement a CLI interface.
-
-**Basic Terminal Commands:**
-
-- **Start Capturing with Specific Mode and Directory:**
-
-  ```bash
-  python main.py --start --mode "Full Screen" --directory "C:\Screenshots"
-  ```
-
-- **Start Capturing in Specific Application Mode:**
-
-  ```bash
-  python main.py --start --mode "Specific Application" --directory "D:\MyScreenshots"
-  ```
-
-**Note:**
-Implementing a full terminal client requires additional code not covered in this scope. Future enhancements can include a dedicated CLI for more granular control.
-
+---
 ### REST API
 
 Visualizer provides a REST API via Flask to access screenshots and their metadata.
@@ -267,71 +190,9 @@ Visualizer provides a REST API via Flask to access screenshots and their metadat
 
 Navigate to `http://127.0.0.1:5000/viewer` in your web browser to view the live-updating screenshot.
 
----
-
-## Configuration
-
-### Command-Line Arguments
-
-- **`--host`**
-  - **Description:** Specifies the Flask server host.
-  - **Default:** `127.0.0.1`
-  - **Example:** `--host "192.168.1.100"`
-
-- **`--port`**
-  - **Description:** Specifies the Flask server port.
-  - **Default:** `5000`
-  - **Example:** `--port 8080`
-
-- **`--mode`**
-  - **Description:** Sets the screenshot capture mode.
-  - **Choices:**
-    - `Full Screen`
-    - `Specific Application`
-    - `Specific Monitor`
-    - `DirectX Game`
-    - `Specific Browser Tab`
-  - **Default:** `Full Screen`
-  - **Example:** `--mode "Specific Application"`
-
-- **`--start`**
-  - **Description:** Starts capturing immediately upon launch.
-  - **Default:** `False`
-
-- **`--reuse`**
-  - **Description:** Enables reuse same image mode (overwrites the same file).
-  - **Default:** `False`
-
-- **`--directory`**
-  - **Description:** Specifies the directory to save screenshots.
-  - **Default:** Current working directory.
-  - **Example:** `--directory "C:\Screenshots"`
-
-### Example Usage:
-
-- **Start Capturing Full Screen Immediately with Reuse Enabled:**
-
-  ```bash
-  python main.py --start --reuse --mode "Full Screen" --directory "C:\Screenshots"
-  ```
-
-- **Start Capturing Specific Application Without Reuse:**
-
-  ```bash
-  python main.py --start --mode "Specific Application" --directory "D:\MyScreenshots"
-  ```
-
----
-
 ## System Tray
 
 Visualizer integrates with the system tray, allowing it to run unobtrusively in the background.
-
-### Tray Icon:
-
-- **Custom Icon:**
-  - Place an icon file named `screenshot_icon.png` in the repository root.
-  - If absent, the application uses a default system icon, and a warning is logged.
 
 ### Tray Menu Actions:
 
@@ -369,10 +230,7 @@ Visualizer integrates with the system tray, allowing it to run unobtrusively in 
 
 ## Troubleshooting
 
-### a. Missing Tray Icon Warning
 
-- **Issue:** `QSystemTrayIcon::setVisible: No Icon set`
-- **Solution:** Ensure that `screenshot_icon.png` exists in the repository root. If not, the application uses a default icon, and you can ignore the warning.
 
 ### b. pywinauto STA Warning
 
