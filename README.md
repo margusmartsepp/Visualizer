@@ -250,6 +250,35 @@ Visualizer integrates with the system tray, allowing it to run unobtrusively in 
 - **Solution:** Check the `screenshot_viewer.log` file for detailed error messages and stack traces. Ensure all dependencies are installed and that the application has the necessary permissions to capture screenshots.
 
 ---
+## Running Tests with `pytest`
+
+### 1. Install Dependencies
+
+Ensure all dependencies are installed by running:
+
+```bash
+pip install -r requirements.txt
+```
+### 2. Run Specific Tests
+To run tests
+```bash
+pytest
+```
+
+You can also target a specific test function by appending the function name:
+```bash
+python -m pytest test_all.py::TestIntegrationFlow::test_full_flow
+```
+### 3. Test Coverage (Optional)
+If you want to measure code coverage run:
+```bash
+pytest --cov=app
+```
+You can use the --cov-report flag with pytest to generate a more detailed coverage report that shows exactly which lines of code are missing coverage:
+```bash
+pytest --cov=app --cov-report term-missing
+```
+---
 
 ## Contributing
 

@@ -283,8 +283,8 @@ class ScreenshotManager:
                 timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
                 if self.reuse_same_image:
-                    # If reuse is enabled, no need to copy if the source and destination are the same
-                    if path != self.file_path:
+                    # Only copy the file if the source and destination paths are different
+                    if os.path.abspath(path) != os.path.abspath(self.file_path):
                         shutil.copy(path, self.file_path)
                     logging.info(f"Screenshot saved to reused file: {self.file_path}")
                     return (self.file_path, width, height, timestamp)
@@ -499,7 +499,7 @@ class ScreenshotWindow(QMainWindow):
                 qt_material.apply_stylesheet(QApplication.instance(), theme=selected_theme)
             else:
                 QMessageBox.warning(self, "Theme Not Found", f"The selected theme '{selected_theme}' is not available.")
-            QMessageBox.information(self, "Settings Applied", "Settings have been successfully applied.")
+            logging.info("Settings have been successfully applied.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to apply settings: {e}")
 
