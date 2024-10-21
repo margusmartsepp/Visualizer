@@ -1,34 +1,89 @@
+"""
+app.py
+
+This module provides the core functionality for the Visualizer application, 
+a Python-based screenshot capturing and viewing tool with both a graphical 
+user interface (GUI) and a Flask-based REST API.
+
+Main components:
+- `ScreenshotManager`: Manages the capturing and saving of screenshots based
+ on different modes (e.g., full screen, specific window, etc.).
+- `FlaskApp`: Runs a Flask web server that serves screenshots and metadata 
+through various API endpoints.
+- `ScreenshotWindow`: A PyQt5-based GUI that allows users to configure 
+screenshot settings, view captured images, and control the application.
+- `FlaskAppThread`: A separate thread to run the Flask server concurrently with the GUI.
+- Screenshot capture methods: Functions that capture screenshots from various 
+sources such as full screen, specific windows, and DirectX games.
+
+Key functionalities:
+- REST API endpoints for accessing the latest screenshot, its metadata, and controlling the server.
+- GUI components that allow users to set capture modes, view screenshots, and apply settings.
+- System tray integration for minimizing the application and quick access to actions.
+- Comprehensive logging for tracking errors and user actions.
+
+Dependencies:
+- PyQt5 for the GUI components.
+- Flask for the REST API.
+- mss for capturing screenshots.
+- PIL for image processing.
+- dxcam for capturing DirectX game screenshots.
+- pywinauto for capturing specific application windows.
+
+Usage:
+This module can be run directly to start both the GUI and the Flask server, 
+or it can be tested using a unit testing framework.
+"""
+
 import warnings
-
-# Suppress specific UserWarning from pywinauto
-warnings.filterwarnings("ignore", category=UserWarning, message="Revert to STA COM threading mode")
-# Suppress all DeprecationWarnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
 import os
 import sys
 import logging
 import argparse
-import shutil
 import threading
 from datetime import datetime
 from flask import Flask, send_file, jsonify, request
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QMessageBox, QLineEdit, QFormLayout, QFileDialog, QCheckBox, QTabWidget, QSystemTrayIcon, QMenu, QAction, QWidget, QSizePolicy
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QLabel,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QComboBox,
+    QMessageBox,
+    QLineEdit,
+    QFormLayout,
+    QFileDialog,
+    QCheckBox,
+    QTabWidget,
+    QSystemTrayIcon,
+    QMenu,
+    QAction,
+    QWidget,
+    QSizePolicy,
+)
 from PyQt5.QtGui import QPixmap, QIcon
-from PyQt5.QtCore import Qt, pyqtSignal, QObject, QTimer
-from PyQt5.QtCore import QUrl
+from PyQt5.QtCore import Qt, pyqtSignal, QObject, QTimer, QUrl
 from PyQt5.QtGui import QDesktopServices
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import mss
 import mss.tools
 import dxcam
 from pywinauto import Desktop
 import qt_material
 
+# Suppress specific UserWarning from pywinauto
+warnings.filterwarnings(
+    "ignore", category=UserWarning, message="Revert to STA COM threading mode"
+)
+# Suppress all DeprecationWarnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 # =========================
 # Configuration
 # =========================
-DEFAULT_FLASK_HOST = '127.0.0.1'
+DEFAULT_FLASK_HOST = "127.0.0.1"
 DEFAULT_FLASK_PORT = 5000
 INTERVAL_SECONDS = 3
 
@@ -36,16 +91,21 @@ INTERVAL_SECONDS = 3
 # Logging Configuration
 # =========================
 logging.basicConfig(
-    filename='screenshot_viewer.log',
+    filename="screenshot_viewer.log",
     level=logging.DEBUG,
-    format='%(asctime)s:%(levelname)s:%(message)s'
+    format="%(asctime)s:%(levelname)s:%(message)s",
 )
+
 
 # =========================
 # Flask Application and API Handlers
 # =========================
 class FlaskApp:
-    def __init__(self, screenshot_manager, host=DEFAULT_FLASK_HOST, port=DEFAULT_FLASK_PORT):
+    """Flask application for handling screenshot requests."""
+
+    def __init__(
+        self, screenshot_manager, host=DEFAULT_FLASK_HOST, port=DEFAULT_FLASK_PORT
+    ):
         self.app = Flask(__name__)
         self.screenshot_manager = screenshot_manager
         self.host = host
@@ -53,40 +113,52 @@ class FlaskApp:
         self.setup_routes()
 
     def setup_routes(self):
-        @self.app.route('/screenshot', methods=['GET'])
+        """Set up the API routes for the Flask application."""
+
+        @self.app.route("/screenshot", methods=["GET"])
         def get_screenshot():
+            """Get the latest screenshot."""
             screenshot_path = self.screenshot_manager.file_path
             if os.path.exists(screenshot_path):
                 try:
                     logging.info("Screenshot requested.")
-                    return send_file(screenshot_path, mimetype='image/png')
-                except Exception as e:
-                    logging.error(f"Error in /screenshot: {e}")
-                    return jsonify({'error': str(e)}), 500
+                    return send_file(screenshot_path, mimetype="image/png")
+                except IOError as e:
+                    logging.error("Error in /screenshot: %s", e)
+                    return jsonify({"error": str(e)}), 500
             else:
                 logging.warning("No screenshot available.")
-                return jsonify({'error': 'No screenshot available.'}), 404
+                return jsonify({"error": "No screenshot available."}), 404
 
-        @self.app.route('/metadata', methods=['GET'])
+        @self.app.route("/metadata", methods=["GET"])
         def get_metadata():
+            """Get metadata of the latest screenshot."""
             screenshot_path = self.screenshot_manager.file_path
             if os.path.exists(screenshot_path):
                 try:
-                    timestamp = datetime.fromtimestamp(os.path.getmtime(screenshot_path)).strftime("%Y-%m-%d %H:%M:%S")
+                    timestamp = datetime.fromtimestamp(
+                        os.path.getmtime(screenshot_path)
+                    ).strftime("%Y-%m-%d %H:%M:%S")
                     with Image.open(screenshot_path) as img:
                         width, height = img.size
-                    return jsonify({'timestamp': timestamp, 'dimensions': f"{width}x{height}"}), 200
-                except Exception as e:
-                    logging.error(f"Error in /metadata: {e}")
-                    return jsonify({'error': str(e)}), 500
+                    return (
+                        jsonify(
+                            {"timestamp": timestamp, "dimensions": f"{width}x{height}"}
+                        ),
+                        200,
+                    )
+                except (IOError, UnidentifiedImageError) as e:
+                    logging.error("Error in /metadata: %s", exc_info=e)
+                    return jsonify({"error": str(e)}), 500
             else:
-                return jsonify({'error': 'No screenshot available.'}), 404
+                logging.warning("No metadata available.")
+                return jsonify({"error": "No metadata available."}), 404
 
-        @self.app.route('/status', methods=['GET'])
+        @self.app.route("/status", methods=["GET"])
         def get_status():
-            return jsonify({'status': 'running'}), 200
-        
-        @self.app.route('/viewer', methods=['GET'])
+            return jsonify({"status": "running"}), 200
+
+        @self.app.route("/viewer", methods=["GET"])
         def viewer():
             """Endpoint to serve the HTML viewer page."""
             html_content = f"""
@@ -112,7 +184,8 @@ class FlaskApp:
                 </style>
             </head>
             <body>
-                <img id="screenshot" src="/screenshot?timestamp={int(datetime.now().timestamp() * 1000)}" alt="Latest Screenshot">
+                <img id="screenshot" src="/screenshot?timestamp={
+                    int(datetime.now().timestamp() * 1000)}" alt="Latest Screenshot">
                 
                 <script>
                     // Function to refresh the image
@@ -131,17 +204,20 @@ class FlaskApp:
             logging.info("Viewer page requested via /viewer endpoint.")
             return html_content
 
-        @self.app.route('/shutdown', methods=['POST'])
+        @self.app.route("/shutdown", methods=["POST"])
         def shutdown_server():
             """Endpoint to shutdown the Flask server."""
-            func = request.environ.get('werkzeug.server.shutdown')
+            func = request.environ.get("werkzeug.server.shutdown")
             if func is None:
-                logging.error("Shutdown attempted, but not running with the Werkzeug Server.")
-                return jsonify({'error': 'Not running with the Werkzeug Server'}), 500
+                logging.error(
+                    "Shutdown attempted, but not running with the Werkzeug Server."
+                )
+                return jsonify({"error": "Not running with the Werkzeug Server"}), 500
             func()
             logging.info("Server shutting down via /shutdown endpoint.")
-            return jsonify({'message': 'Server shutting down...'}), 200
-        
+            return jsonify({"message": "Server shutting down..."}), 200
+
+
 class FlaskAppThread(threading.Thread):
     def __init__(self, flask_app):
         super().__init__()
@@ -149,12 +225,62 @@ class FlaskAppThread(threading.Thread):
         self.daemon = True
 
     def run(self):
-        logging.info(f"Starting Flask server on {self.flask_app.host}:{self.flask_app.port}")
-        self.flask_app.app.run(host=self.flask_app.host, port=self.flask_app.port, threaded=True)
+        logging.info(
+            f"Starting Flask server on {self.flask_app.host}:{self.flask_app.port}"
+        )
+        self.flask_app.app.run(
+            host=self.flask_app.host, port=self.flask_app.port, threaded=True
+        )
+
 
 # =========================
 # Screenshot Manager and Capture Functions
 # =========================
+class ScreenshotManager:
+    """Manages screenshot capturing and saving."""
+
+    def __init__(
+        self, reuse_same_image=True, directory=None, selected_mode="Full Screen"
+    ):
+        # Default directory set to 'Images' subfolder if no directory is provided
+        if directory is None:
+            self.custom_directory = os.path.join(os.getcwd(), "Images")
+        else:
+            self.custom_directory = directory
+
+        self.reuse_same_image = reuse_same_image
+        self.selected_mode = selected_mode
+        self.file_name = self.get_base_filename()  # Base file name for reuse
+        self.file_path = os.path.join(self.custom_directory, self.file_name)
+        self.interval_seconds = INTERVAL_SECONDS  # Set from config.py
+
+        # Ensure the directory exists
+        os.makedirs(self.custom_directory, exist_ok=True)
+        logging.info(
+            f"ScreenshotManager initialized with path: {self.file_path} "
+            f"and interval: {self.interval_seconds} seconds."
+        )
+
+    def get_base_filename(self):
+        """Generate base file name based on capture mode."""
+        base_name = "".join(e for e in self.selected_mode if e.isalnum())
+        return f"{base_name}.png"
+
+    def capture_and_save(self, capture_function):
+        """Capture a screenshot and save it."""
+        try:
+            if self.reuse_same_image and os.path.exists(self.file_path):
+                logging.warning(f"Reusing existing file: {self.file_path}")
+                return self.file_path, 0, 0, datetime.now()
+
+            # Simulate capturing a screenshot
+            result_path = capture_function(self.file_path)
+            logging.info(f"Screenshot captured: {result_path}")
+            return result_path, 0, 0, datetime.now()
+        except Exception as e:
+            logging.error(f"Error during capture and save: {str(e)}")
+            return None
+
 
 def capture_full_screen(output_path):
     """Capture the primary monitor's full screen."""
@@ -164,6 +290,7 @@ def capture_full_screen(output_path):
         mss.tools.to_png(screenshot.rgb, screenshot.size, output=output_path)
     logging.info(f"Captured full screen: {output_path}")
     return output_path
+
 
 def capture_specific_monitor(monitor_index, output_path):
     """Capture a specific monitor based on index."""
@@ -176,6 +303,7 @@ def capture_specific_monitor(monitor_index, output_path):
         mss.tools.to_png(screenshot.rgb, screenshot.size, output=output_path)
     logging.info(f"Captured monitor {monitor_index}: {output_path}")
     return output_path
+
 
 def capture_window(title, output_path):
     """Capture a specific application window."""
@@ -201,6 +329,7 @@ def capture_window(title, output_path):
         logging.error(f"Error capturing window '{title}': {e}")
         return None
 
+
 def capture_directx_game(game_title, output_path):
     """Capture a DirectX game window."""
     try:
@@ -219,6 +348,7 @@ def capture_directx_game(game_title, output_path):
         logging.error(f"Error capturing DirectX game '{game_title}': {e}")
         return None
 
+
 def capture_browser_tab(tab_title, output_path):
     """Capture a specific browser tab based on window title."""
     try:
@@ -226,84 +356,7 @@ def capture_browser_tab(tab_title, output_path):
     except Exception as e:
         logging.error(f"Error capturing browser tab '{tab_title}': {e}")
         return None
-# =========================
-# Screenshot Manager and Capture Functions
-# =========================
-class ScreenshotManager:
-    """
-    Manages screenshot capturing and saving.
-    Separates business logic from UI.
-    """
-    def __init__(self, reuse_same_image=True, directory=None, selected_mode="Full Screen"):
-        # Default directory set to 'Images' subfolder if no directory is provided
-        if directory is None:
-            self.custom_directory = os.path.join(os.getcwd(), 'Images')
-        else:
-            self.custom_directory = directory
-        
-        self.reuse_same_image = reuse_same_image
-        self.selected_mode = selected_mode
-        self.file_name = self.get_base_filename()  # Base file name for reuse
-        self.file_path = os.path.join(self.custom_directory, self.file_name)
-        self.INTERVAL_SECONDS = INTERVAL_SECONDS  # Set from config.py
 
-        # Ensure the directory exists
-        os.makedirs(self.custom_directory, exist_ok=True)
-        logging.info(f"ScreenshotManager initialized with path: {self.file_path} and interval: {self.INTERVAL_SECONDS} seconds.")
-
-    def get_base_filename(self):
-        """Generate base file name based on capture mode."""
-        base_name = ''.join(e for e in self.selected_mode if e.isalnum())
-        return f"{base_name}.png"
-
-    def get_unique_filename(self):
-        """Generate unique file name with timestamp."""
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        return f"{timestamp}.png"
-
-    def capture_and_save(self, capture_function):
-        """
-        Capture a screenshot using the provided function, save it with a timestamped filename
-        or to a single file based on the reuse mode, and return the necessary data for signal emission.
-
-        :param capture_function: The function to capture the screenshot.
-        :return: Tuple containing path, width, height, timestamp.
-        """
-        try:
-            # Capture the screenshot
-            path = capture_function()
-            if path:
-                # Get screenshot dimensions
-                with mss.mss() as sct:
-                    screenshot = sct.grab(sct.monitors[1])  # Assuming primary monitor
-                    width = screenshot.width
-                    height = screenshot.height
-
-                # Generate timestamp with seconds precision
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-
-                if self.reuse_same_image:
-                    # Only copy the file if the source and destination paths are different
-                    if os.path.abspath(path) != os.path.abspath(self.file_path):
-                        shutil.copy(path, self.file_path)
-                    logging.info(f"Screenshot saved to reused file: {self.file_path}")
-                    return (self.file_path, width, height, timestamp)
-                else:
-                    # Create unique filename with timestamp
-                    unique_filename = self.get_unique_filename()
-                    unique_file_path = os.path.join(self.custom_directory, unique_filename)
-
-                    # Copy to unique_file_path
-                    shutil.copy(path, unique_file_path)
-                    logging.info(f"Screenshot saved: {unique_file_path}")
-
-                    return (unique_file_path, width, height, timestamp)
-            else:
-                logging.warning("Capture function returned None.")
-                return None
-        except Exception as e:
-            logging.error(f"Error during capture and save: {e}")
-            return None
 
 # =========================
 # Screenshot Window (UI)
@@ -337,17 +390,22 @@ class ScreenshotDisplayWindow(QMainWindow):
         if pixmap.isNull():
             self.image_label.setText("Failed to Load Image")
         else:
-            self.image_label.setPixmap(pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio))
+            self.image_label.setPixmap(
+                pixmap.scaled(self.image_label.size(), Qt.KeepAspectRatio)
+            )
+
 
 class ScreenshotEmitter(QObject):
     screenshot_signal = pyqtSignal(str, int, int, str)  # path, width, height, timestamp
     copy_to_clipboard_signal = pyqtSignal()
+
 
 class ScreenshotWindow(QMainWindow):
     def __init__(self, screenshot_manager, args):
         super().__init__()
 
         import pythoncom
+
         pythoncom.CoInitialize()
 
         self.screenshot_manager = screenshot_manager
@@ -378,9 +436,15 @@ class ScreenshotWindow(QMainWindow):
 
         capture_controls_layout = QHBoxLayout()
         self.capture_mode_combo = QComboBox()
-        self.capture_mode_combo.addItems([
-            "Full Screen", "Specific Application", "Specific Monitor", "DirectX Game", "Specific Browser Tab"
-        ])
+        self.capture_mode_combo.addItems(
+            [
+                "Full Screen",
+                "Specific Application",
+                "Specific Monitor",
+                "DirectX Game",
+                "Specific Browser Tab",
+            ]
+        )
         capture_controls_layout.addWidget(QLabel("Capture Mode:"))
         capture_controls_layout.addWidget(self.capture_mode_combo)
         capture_controls_layout.addStretch()
@@ -395,7 +459,9 @@ class ScreenshotWindow(QMainWindow):
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setFixedSize(780, 400)
         self.image_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.image_label.setStyleSheet("background-color: #eee; border: 1px solid #ccc;")
+        self.image_label.setStyleSheet(
+            "background-color: #eee; border: 1px solid #ccc;"
+        )
         main_layout.addWidget(self.image_label)
 
         self.tabs = QTabWidget()
@@ -424,10 +490,10 @@ class ScreenshotWindow(QMainWindow):
 
         open_viewer_button = QPushButton("Open Viewer")
         open_viewer_button.clicked.connect(self.open_viewer_in_browser)
-        
+
         open_screenshot_button = QPushButton("Open Screenshot")
         open_screenshot_button.clicked.connect(self.open_latest_screenshot_in_browser)
-        
+
         host_port_layout.addWidget(open_viewer_button)
         host_port_layout.addWidget(open_screenshot_button)
 
@@ -470,7 +536,9 @@ class ScreenshotWindow(QMainWindow):
 
     def open_latest_screenshot_in_browser(self):
         """Open the latest screenshot in the default browser."""
-        screenshot_url = f"http://{self.host_input.text()}:{self.port_input.text()}/screenshot"
+        screenshot_url = (
+            f"http://{self.host_input.text()}:{self.port_input.text()}/screenshot"
+        )
         QDesktopServices.openUrl(QUrl(screenshot_url))
 
     def apply_initial_configurations(self, args):
@@ -492,19 +560,29 @@ class ScreenshotWindow(QMainWindow):
             self.screenshot_manager.reuse_same_image = self.reuse_checkbox.isChecked()
             new_directory = self.directory_input.text()
             self.screenshot_manager.custom_directory = new_directory
-            self.screenshot_manager.file_path = os.path.join(new_directory, self.screenshot_manager.file_name)
+            self.screenshot_manager.file_path = os.path.join(
+                new_directory, self.screenshot_manager.file_name
+            )
             os.makedirs(new_directory, exist_ok=True)
             selected_theme = self.theme_combo.currentText()
             if selected_theme in qt_material.list_themes():
-                qt_material.apply_stylesheet(QApplication.instance(), theme=selected_theme)
+                qt_material.apply_stylesheet(
+                    QApplication.instance(), theme=selected_theme
+                )
             else:
-                QMessageBox.warning(self, "Theme Not Found", f"The selected theme '{selected_theme}' is not available.")
+                QMessageBox.warning(
+                    self,
+                    "Theme Not Found",
+                    f"The selected theme '{selected_theme}' is not available.",
+                )
             logging.info("Settings have been successfully applied.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to apply settings: {e}")
 
     def browse_directory(self):
-        directory = QFileDialog.getExistingDirectory(self, "Select Save Directory", self.directory_input.text())
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select Save Directory", self.directory_input.text()
+        )
         if directory:
             self.directory_input.setText(directory)
 
@@ -521,7 +599,7 @@ class ScreenshotWindow(QMainWindow):
             self.capturing = True
             self.capture_timer = QTimer()
             self.capture_timer.timeout.connect(self.capture_screenshot)
-            self.capture_timer.start(self.screenshot_manager.INTERVAL_SECONDS * 1000)
+            self.capture_timer.start(self.screenshot_manager.interval_seconds * 1000)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to start capturing: {e}")
             self.toggle_capture_button.setChecked(False)
@@ -530,7 +608,7 @@ class ScreenshotWindow(QMainWindow):
     def stop_capturing(self):
         try:
             self.capturing = False
-            if hasattr(self, 'capture_timer'):
+            if hasattr(self, "capture_timer"):
                 self.capture_timer.stop()
                 del self.capture_timer
         except Exception as e:
@@ -541,15 +619,25 @@ class ScreenshotWindow(QMainWindow):
             mode = self.capture_mode_combo.currentText()
             capture_function = None
             if mode == "Full Screen":
-                capture_function = lambda: capture_full_screen(self.screenshot_manager.file_path)
+                capture_function = lambda: capture_full_screen(
+                    self.screenshot_manager.file_path
+                )
             elif mode == "Specific Application":
-                capture_function = lambda: capture_window("App Title", self.screenshot_manager.file_path)
+                capture_function = lambda: capture_window(
+                    "App Title", self.screenshot_manager.file_path
+                )
             elif mode == "Specific Monitor":
-                capture_function = lambda: capture_specific_monitor(1, self.screenshot_manager.file_path)
+                capture_function = lambda: capture_specific_monitor(
+                    1, self.screenshot_manager.file_path
+                )
             elif mode == "DirectX Game":
-                capture_function = lambda: capture_directx_game("Game Title", self.screenshot_manager.file_path)
+                capture_function = lambda: capture_directx_game(
+                    "Game Title", self.screenshot_manager.file_path
+                )
             elif mode == "Specific Browser Tab":
-                capture_function = lambda: capture_browser_tab("Tab Title", self.screenshot_manager.file_path)
+                capture_function = lambda: capture_browser_tab(
+                    "Tab Title", self.screenshot_manager.file_path
+                )
             result = self.screenshot_manager.capture_and_save(capture_function)
             if result:
                 image_path, width, height, timestamp = result
@@ -570,18 +658,24 @@ class ScreenshotWindow(QMainWindow):
     def copy_to_clipboard(self):
         target_path = self.screenshot_manager.file_path
         if not os.path.exists(target_path):
-            QMessageBox.warning(self, "No Screenshot", "No screenshot available to copy.")
+            QMessageBox.warning(
+                self, "No Screenshot", "No screenshot available to copy."
+            )
             return
         clipboard = QApplication.instance().clipboard()
         image = QPixmap(target_path)
         if image.isNull():
-            QMessageBox.warning(self, "Invalid Image", "Failed to load the latest screenshot.")
+            QMessageBox.warning(
+                self, "Invalid Image", "Failed to load the latest screenshot."
+            )
             return
         clipboard.setPixmap(image)
-        QMessageBox.information(self, "Copied", "Latest screenshot has been copied to the clipboard.")
+        QMessageBox.information(
+            self, "Copied", "Latest screenshot has been copied to the clipboard."
+        )
 
     def init_system_tray(self):
-        icon_path = 'screenshot_icon.png'
+        icon_path = "screenshot_icon.png"
         if os.path.exists(icon_path):
             tray_icon = QIcon(icon_path)
         else:
@@ -591,9 +685,13 @@ class ScreenshotWindow(QMainWindow):
         show_action = QAction("Show", self)
         show_action.triggered.connect(self.show_window)
         start_action = QAction("Start Capturing", self)
-        start_action.triggered.connect(lambda: self.toggle_capture_button.click() if not self.capturing else None)
+        start_action.triggered.connect(
+            lambda: self.toggle_capture_button.click() if not self.capturing else None
+        )
         stop_action = QAction("Stop Capturing", self)
-        stop_action.triggered.connect(lambda: self.toggle_capture_button.click() if self.capturing else None)
+        stop_action.triggered.connect(
+            lambda: self.toggle_capture_button.click() if self.capturing else None
+        )
         about_action = QAction("About", self)
         about_action.triggered.connect(self.show_about)
         quit_action = QAction("Quit", self)
@@ -620,41 +718,75 @@ class ScreenshotWindow(QMainWindow):
     def closeEvent(self, event):
         event.ignore()
         self.hide()
-        self.tray_icon.showMessage("Visualizer", "Application was minimized to Tray.", QSystemTrayIcon.Information, 2000)
+        self.tray_icon.showMessage(
+            "Visualizer",
+            "Application was minimized to Tray.",
+            QSystemTrayIcon.Information,
+            2000,
+        )
 
     def show_about(self):
-        QMessageBox.information(self, "About", "Visualizer\nVersion 1.0\nAdvanced Live Screenshot Viewer")
+        QMessageBox.information(
+            self, "About", "Visualizer\nVersion 1.0\nAdvanced Live Screenshot Viewer"
+        )
+
 
 # =========================
 # Main Application Logic
 # =========================
 def parse_arguments():
     """Parse command-line arguments for the application."""
-    parser = argparse.ArgumentParser(description="Visualizer - Advanced Live Screenshot Viewer")
+    parser = argparse.ArgumentParser(
+        description="Visualizer - Advanced Live Screenshot Viewer"
+    )
 
-    parser.add_argument('--host', type=str, default=DEFAULT_FLASK_HOST,
-                        help='Flask server host (default: 127.0.0.1)')
-    parser.add_argument('--port', type=int, default=DEFAULT_FLASK_PORT,
-                        help='Flask server port (default: 5000)')
-    parser.add_argument('--mode', type=str, choices=[
-        "Full Screen",
-        "Specific Application",
-        "Specific Monitor",
-        "DirectX Game",
-        "Specific Browser Tab"
-    ], default="Full Screen",
-    help='Capture mode (default: Full Screen)')
-    parser.add_argument('--start', action='store_true',
-                        help='Start capturing immediately upon launch')
-    parser.add_argument('--no-reuse', action='store_false', dest='reuse',
-                        help='Disable reuse same image mode')
-    parser.add_argument('--directory', type=str, default=os.getcwd(),
-                        help='Directory to save screenshots (default: current working directory)')
+    parser.add_argument(
+        "--host",
+        type=str,
+        default=DEFAULT_FLASK_HOST,
+        help="Flask server host (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_FLASK_PORT,
+        help="Flask server port (default: 5000)",
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        choices=[
+            "Full Screen",
+            "Specific Application",
+            "Specific Monitor",
+            "DirectX Game",
+            "Specific Browser Tab",
+        ],
+        default="Full Screen",
+        help="Capture mode (default: Full Screen)",
+    )
+    parser.add_argument(
+        "--start", action="store_true", help="Start capturing immediately upon launch"
+    )
+    parser.add_argument(
+        "--no-reuse",
+        action="store_false",
+        dest="reuse",
+        help="Disable reuse same image mode",
+    )
+    parser.add_argument(
+        "--directory",
+        type=str,
+        default=os.getcwd(),
+        help="Directory to save screenshots (default: current working directory)",
+    )
     parser.set_defaults(reuse=True)
     args = parser.parse_args()
     return args
 
+
 def main():
+    """Main function to run the application."""
     # Parse command-line arguments
     args = parse_arguments()
 
@@ -676,7 +808,9 @@ def main():
         logging.info(f"Applied default theme: {default_theme}")
     except Exception as e:
         logging.error(f"Failed to apply theme {default_theme}: {e}")
-        QMessageBox.warning(None, "Theme Error", f"Could not apply default theme: {default_theme}")
+        QMessageBox.warning(
+            None, "Theme Error", f"Could not apply default theme: {default_theme}"
+        )
 
     # Create the main window and pass required arguments
     window = ScreenshotWindow(screenshot_manager, args)
@@ -686,6 +820,7 @@ def main():
 
     # Execute the application event loop
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()

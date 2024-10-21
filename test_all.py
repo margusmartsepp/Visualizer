@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import os
 import shutil
 import sys
@@ -11,7 +11,7 @@ parent_dir = os.path.dirname(current_dir)
 src_path = os.path.join(parent_dir, 'src')
 sys.path.insert(0, src_path)
 
-from app import ScreenshotManager, capture_full_screen, ScreenshotWindow, FlaskApp
+from app import ScreenshotManager, ScreenshotWindow, FlaskApp
 
 # =========================
 # Unit Tests
