@@ -1,7 +1,6 @@
 # Visualizer
-[![Linter](./linter-badge.md)](https://github.com/margusmartsepp/Visualizer/actions)
-[![Tests](./test-badge.md)](https://github.com/margusmartsepp/Visualizer/actions)
-
+[![Linter](https://img.shields.io/badge/Linter-10%20/10-brightgreen)](https://github.com/margusmartsepp/Visualizer/actions)
+[![Tests](https://img.shields.io/badge/Tests-10%20passed-brightgreen)](https://github.com/margusmartsepp/Visualizer/actions)
 ![Visualizer Icon](screenshot_icon.png) 
 
 ## Table of Contents
