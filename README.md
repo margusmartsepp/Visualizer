@@ -1,4 +1,6 @@
 # Visualizer
+![Linter](https://margusmartsepp.github.io/Visualizer/linter-badge.md)
+![Tests](https://margusmartsepp.github.io/Visualizer/test-badge.md)
 
 ![Visualizer Icon](screenshot_icon.png) 
 

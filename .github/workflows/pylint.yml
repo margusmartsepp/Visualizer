@@ -1,4 +1,4 @@
-name: Pylint
+name: CI
 
 on: [push]
 
@@ -8,19 +8,77 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12"]
+
     steps:
     - uses: actions/checkout@v4
+
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4  # Update to latest version
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
       env:
         FORCE_JAVASCRIPT_ACTIONS_TO_NODE20: true  # Optional: Test Node 20 ahead of time
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pylint
+
     - name: Analyse the code with pylint
+      id: pylint
+      continue-on-error: true # Continue even if linting fails
       run: |
-        pylint $(git ls-files '*.py') --fail-under=8
+        pylint $(git ls-files '*.py') --fail-under=8 --output-format=parseable > pylint-report.txt
+        score=$(tail -n 1 pylint-report.txt | grep -oP '\d+\.\d+/10') || echo "0.00/10"
+        echo "::set-output name=lint_score::$score"
+
+    - name: Generate linter badge
+      run: |
+        lint_score=${{ steps.pylint.outputs.lint_score }}
+        lint_score_value=$(echo $lint_score | cut -d'/' -f1)
+        if (( $(echo "$lint_score_value >= 8" | bc -l) )); then
+          color=brightgreen
+        elif (( $(echo "$lint_score_value >= 6" | bc -l) )); then
+          color=yellow
+        else
+          color=red
+        fi
+        echo "[![Linter](https://img.shields.io/badge/Linter-$lint_score-$color)](https://github.com/yourusername/yourrepo/actions)" > linter-badge.md
+
+    - name: Run tests
+      run: |
+        pytest --junitxml=report.xml
+
+    - name: Parse test results and generate test badge
+      run: |
+        tests=$(grep testsuite report.xml | sed 's/.*tests="\([0-9]*\)".*/\1/')
+        failures=$(grep testsuite report.xml | sed 's/.*failures="\([0-9]*\)".*/\1/')
+        passes=$(($tests - $failures))
+        score=$(bc -l <<< "scale=2; $passes/$tests*10")
+        echo "::set-output name=test_score::$score"
+        
+    - name: Generate test badge
+      run: |
+        test_score=${{ steps.test.outputs.test_score }}
+        if (( $(echo "$test_score >= 8" | bc -l) )); then
+          color=brightgreen
+        elif (( $(echo "$test_score >= 6" | bc -l) )); then
+          color=yellow
+        else
+          color=red
+        fi
+        echo "[![Tests](https://img.shields.io/badge/Tests-$test_score%2F10-$color)](https://github.com/yourusername/yourrepo/actions)" > test-badge.md
+
+    - name: Publish badges
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./badges
+        publish_branch: gh-pages
+
+    - name: Save badges
+      run: |
+        mkdir -p badges
+        mv linter-badge.md badges/linter-badge.md
+        mv test-badge.md badges/test-badge.md
