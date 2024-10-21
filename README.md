@@ -1,6 +1,6 @@
 # Visualizer
-![Linter](https://margusmartsepp.github.io/Visualizer/linter-badge.md)
-![Tests](https://margusmartsepp.github.io/Visualizer/test-badge.md)
+[![Linter](./linter-badge.md)](https://github.com/margusmartsepp/Visualizer/actions)
+[![Tests](./test-badge.md)](https://github.com/margusmartsepp/Visualizer/actions)
 
 ![Visualizer Icon](screenshot_icon.png) 
 
