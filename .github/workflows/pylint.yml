@@ -11,17 +11,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v4  # Update to latest version
       with:
         python-version: ${{ matrix.python-version }}
-    # Install project dependencies if needed
+      env:
+        FORCE_JAVASCRIPT_ACTIONS_TO_NODE20: true  # Optional: Test Node 20 ahead of time
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install pylint==2.15.0  # Pin the pylint version for stability
-
-    # Run pylint
-    - name: Run Pylint
+        pip install pylint
+    - name: Analyse the code with pylint
       run: |
         pylint $(git ls-files '*.py')
