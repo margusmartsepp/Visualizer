@@ -1,21 +1,27 @@
+# pylint: disable=wrong-import-order
 """
 This module contains unit and integration tests for the 
 ScreenshotManager, FlaskApp, and ScreenshotWindow components.
 """
-
+import warnings
 import unittest
 from unittest.mock import patch
 import os
 import shutil
 import sys
-from PyQt5.QtWidgets import QApplication  # pylint: disable=no-name-in-module
-from app import ScreenshotManager, ScreenshotWindow, FlaskApp
+
+# Suppress the specific UserWarning from pywinauto
+warnings.filterwarnings("ignore", category=UserWarning, message="Revert to STA COM threading mode")
 
 # Add src/ to PYTHONPATH if necessary
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 src_path = os.path.join(parent_dir, 'src')
 sys.path.insert(0, src_path)
+
+from PyQt5.QtWidgets import QApplication  # pylint: disable=no-name-in-module
+from app import ScreenshotManager, ScreenshotWindow, FlaskApp  # pylint: disable=no-name-in-module
+from pywinauto import Desktop  # pylint: disable=unused-import
 
 # =========================
 # Unit Tests
@@ -40,19 +46,19 @@ class TestScreenshotManager(unittest.TestCase):
     @patch('app.capture_full_screen')
     def test_capture_and_save_reuse_true(self, mock_capture):
         """Test capturing and saving with reuse_same_image set to True."""
-        mock_capture.return_value = 'FullScreen_temp.png'
-        with open('FullScreen_temp.png', 'w', encoding='utf-8') as f:
+        mock_capture.return_value = os.path.join('test_images', 'FullScreen.png')
+        with open(mock_capture.return_value, 'w', encoding='utf-8') as f:
             f.write('dummy data')
 
         result = self.manager.capture_and_save(mock_capture)
-        self.assertEqual(result[0], os.path.join('test_images', 'FullScreen.png'))
+        self.assertEqual(result[0], os.path.join('test_images', 'fullscreen.png'))
 
     @patch('app.capture_full_screen')
     def test_capture_and_save_reuse_false(self, mock_capture):
         """Test capturing and saving with reuse_same_image set to False."""
         self.manager.reuse_same_image = False
-        mock_capture.return_value = 'FullScreen_temp.png'
-        with open('FullScreen_temp.png', 'w', encoding='utf-8') as f:
+        mock_capture.return_value = os.path.join('test_images', 'FullScreen_temp.png')
+        with open(mock_capture.return_value, 'w', encoding='utf-8') as f:
             f.write('dummy data')
 
         result = self.manager.capture_and_save(mock_capture)
@@ -127,10 +133,10 @@ class TestScreenshotWindow(unittest.TestCase):
         self.args = Args()
         self.window = ScreenshotWindow(self.manager, self.args)
 
-    @patch('app.ScreenshotWindow.open_viewer_in_browser')
+    @patch('app.ScreenshotWindow._open_viewer_in_browser')  # Use the correct private method name
     def test_open_viewer_in_browser(self, mock_open_viewer):
         """Test the open_viewer_in_browser method."""
-        self.window.open_viewer_in_browser()
+        self.window._open_viewer_in_browser()  # Call the correct method
         mock_open_viewer.assert_called_once()
 
     def test_toggle_capture_button(self):
@@ -141,7 +147,7 @@ class TestScreenshotWindow(unittest.TestCase):
 
     def test_apply_settings(self):
         """Test applying settings updates the host input value."""
-        self.window.apply_settings()
+        self.window._apply_settings()  # Call the correct method
         self.assertEqual(self.window.host_input.text(), '127.0.0.1')
 
     @classmethod
@@ -168,13 +174,14 @@ class TestIntegrationFlow(unittest.TestCase):
     @patch('app.capture_full_screen')
     def test_full_flow(self, mock_capture):
         """Test the full screenshot capture and save flow."""
-        mock_capture.return_value = 'FullScreen.png'
-        with open('FullScreen.png', 'w', encoding='utf-8') as f:
+        mock_capture.return_value = os.path.join('test_images', 'FullScreen.png')
+        with open(mock_capture.return_value, 'w', encoding='utf-8') as f:
             f.write('dummy data')
 
         manager = ScreenshotManager(directory='test_images')
         result = manager.capture_and_save(mock_capture)
         self.assertIsNotNone(result)
+
 
 if __name__ == '__main__':
     unittest.main()

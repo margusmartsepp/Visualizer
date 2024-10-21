@@ -72,7 +72,6 @@ import dxcam
 import pythoncom
 from pywinauto import Desktop, ElementNotFoundError
 import qt_material
-from qt_material import ThemeNotFoundError
 
 # Suppress specific UserWarning from pywinauto
 warnings.filterwarnings(
@@ -1000,7 +999,7 @@ def main():
     default_theme = "light_blue_500.xml"
     try:
         qt_material.apply_stylesheet(app, theme=default_theme)
-    except ThemeNotFoundError as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         logging.error("Failed to apply theme %s: %s", default_theme, e)
         QMessageBox.warning(
             None, "Theme Error", f"Could not apply default theme: {default_theme}"
