@@ -24,7 +24,9 @@ jobs:
       run: |
         $pylint_output = pylint $(git ls-files '*.py')
         $lint_score = $pylint_output | Select-String "Your code has been rated at" | ForEach-Object { $_.Line -replace '.+ rated at ', '' -replace '/10.+', '' }
-        $lint_score_value = [double]$lint_score
+        # Extract just the numeric score (e.g., '10.00')
+        $lint_score_numeric = $lint_score -split '/10' | Select-Object -First 1
+        $lint_score_value = [double]$lint_score_numeric
         if ($lint_score_value -ge 8) {
           $color = 'brightgreen'
         } elseif ($lint_score_value -ge 6) {
@@ -32,7 +34,7 @@ jobs:
         } else {
           $color = 'red'
         }
-        $badge = "[![Linter](https://img.shields.io/badge/Linter-$lint_score/10-$color)](https://github.com/margusmartsepp/Visualizer/actions)"
+        $badge = "[![Linter](https://img.shields.io/badge/Linter-$lint_score_numeric/10-$color)](https://github.com/margusmartsepp/Visualizer/actions)"
         Set-Content -Path 'linter-badge.md' -Value $badge
 
     - name: Run tests
