@@ -42,14 +42,20 @@ jobs:
       run: |
         pytest --maxfail=1 --disable-warnings > pytest_results.txt
         $test_results = Get-Content pytest_results.txt | Select-String -Pattern "^=+ (\d+) passed"
-        $test_results_value = $test_results -replace '.+ (\d+) passed.+', '$1'
-        if ($test_results_value -gt 0) {
-          $color = 'brightgreen'
+        if ($test_results) {
+          $test_results_value = $test_results -replace '^=+ (\d+) passed.*', '$1'
+          if ([int]$test_results_value -gt 0) {
+            $color = 'brightgreen'
+          } else {
+            $color = 'red'
+          }
         } else {
+          $test_results_value = 0
           $color = 'red'
         }
         $badge = "[![Tests](https://img.shields.io/badge/Tests-$test_results_value%20passed-$color)](https://github.com/margusmartsepp/Visualizer/actions)"
         Set-Content -Path 'test-badge.md' -Value $badge
+      shell: pwsh
 
     - name: Commit badges
       run: |
